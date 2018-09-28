@@ -5,31 +5,42 @@ using UnityEngine;
 [RequireComponent(typeof(Controller2D))]
 public class PlayerMovement : MonoBehaviour {
 
-	[Range(0, 10)] [SerializeField] private float walkSpeed = 6f;
-	[Range(-20, 0)] [SerializeField] private float gravity = -20f;
-	protected Controller2D controller;
-	protected Vector3 velocity;
-	protected bool jump = false;
+	[Range(0, 10f)] [SerializeField] private float m_WalkSpeed = 6f;
+	[Range(0, 1f)] [SerializeField] private float m_TimeToJumpApex = 0.4f;
+	[Range(0, 10f)] [SerializeField] private float m_JumpHeight = 4;
+	[Range(0, 1f)] [SerializeField] private float WalkSmoothing = 0.1f;
+	[Range(0, 1f)] [SerializeField] private float m_AccelerationTimeAirborne = 0.2f;
+	[Range(0, 1f)] [SerializeField] private float m_AccelerationTimeWalking = 0.1f;
+
+	private float m_WalkVelocitySmoothing;
+	private float m_Gravity;
+	private float m_JumpVelocity;
+	private Controller2D m_Controller;
+	private Vector3 m_Velocity;
 
 	void Start() {
-		controller = GetComponent<Controller2D>();
+		m_Controller = GetComponent<Controller2D>();
+		CalculateGravity();
+	}
+
+	void CalculateGravity() {
+		m_Gravity = -(2 * m_JumpHeight) / Mathf.Pow(m_TimeToJumpApex, 2);
+		m_JumpVelocity = Mathf.Abs(m_Gravity * m_TimeToJumpApex);
 	}
 
 	void Update () {
-		Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-		velocity.x = input.x * walkSpeed;
-		/*
-		if (Input.GetButtonDown("Jump")) {
-			jump = true;
+		if (m_Controller.collisions.above || m_Controller.collisions.below) {
+			m_Velocity.y = 0;
 		}
-		 */
 
-	}
+		Vector2 input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
 
-	void FixedUpdate () {
-		
-		velocity.y += gravity * Time.deltaTime;
-
-		controller.Move(velocity * Time.deltaTime);
+		if (Input.GetButtonDown("Jump") && m_Controller.collisions.below) {
+			m_Velocity.y = m_JumpVelocity;
+		}
+		float targetVelocity = input.x * m_WalkSpeed;
+		m_Velocity.x = Mathf.SmoothDamp(m_Velocity.x, targetVelocity, ref m_WalkVelocitySmoothing, (m_Controller.collisions.below?m_AccelerationTimeWalking:m_AccelerationTimeAirborne));
+		m_Velocity.y += m_Gravity * Time.deltaTime;
+		m_Controller.Move(m_Velocity * Time.deltaTime);
 	}
 }
